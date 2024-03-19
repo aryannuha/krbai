@@ -1,10 +1,14 @@
 import cv2
 import numpy as np
-from PIL import Image
 import time
+import serial
+
+# Inisialisasi koneksi serial dengan Arduino
+ser = serial.Serial("COM5", 9600)  # Ganti '/dev/ttyUSB0' dengan port serial yang sesuai
+time.sleep(2)  # Tunggu sebentar agar koneksi serial stabil
 
 # baca gambar
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 # mengubah spesifik ukuran
 # lebar
@@ -13,27 +17,31 @@ cap.set(3, 640)
 cap.set(4, 480)
 # kecerahan
 # cap.set(10, 100)
-cap.set(cv2.CAP_PROP_BRIGHTNESS, 1)
+cap.set(cv2.CAP_PROP_BRIGHTNESS, 100)
 
 # Variabel untuk menghitung FPS
 fps_start_time = time.time()
 fps_frame_counter = 0
 fps = 0
 
+# deklarasi variabel
+depth = ""
+distance = ""
+    
 # # video adalah sekumpulan gambar, sehingga dibutuhkan perulangan
 while True:    
     # mengcapture image
     success, img = cap.read()
     
     # menentukan hsv minimum
-    r_lower = np.array([136, 87, 111]) # lower red
-    o_lower = np.array([8,100,100]) # lower orange
-    g_lower = np.array([25, 52, 72]) # lower green
+    r_lower = np.array([163, 201, 136]) # lower red
+    o_lower = np.array([1,177,125]) # lower orange
+    g_lower = np.array([45, 80, 25]) # lower green
 
     # menentukan hsv maksimum
     r_upper = np.array([179, 255, 255]) # higher red
-    o_upper = np.array([18,255,255]) # higher orange
-    g_upper = np.array([102,255,255]) # higher green
+    o_upper = np.array([63,255,255]) # higher orange
+    g_upper = np.array([90,255,255]) # higher green
     
     # ubah bgr menjadi hsv
     imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -84,7 +92,10 @@ while True:
             cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1) 
 
             # tulisan merah pada persegi panjang
-            cv2.putText(img, "Merah", (x + w + 10, y + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
+            cv2.putText(img, "Merah", (x + 10 , y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
+            
+            # kirim data ke arduino
+            ser.write('r'.encode())
             
     # Jika ditemukan setidaknya satu kontur untuk warna orange
     for contour in contours_o:
@@ -110,7 +121,10 @@ while True:
             cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1) 
 
             # tulisan merah pada persegi panjang
-            cv2.putText(img, "Orange", (x + w + 10, y + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 69, 255), 2, cv2.LINE_AA)        
+            cv2.putText(img, "Orange", (x + 10 , y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 69, 255), 2, cv2.LINE_AA)        
+    
+            # kirim data ke arduino
+            ser.write('o'.encode())
     
     # Jika ditemukan setidaknya satu kontur untuk warna hijau
     for contour in contours_g:
@@ -136,8 +150,23 @@ while True:
             cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1) 
 
             # tulisan merah pada persegi panjang
-            cv2.putText(img, "Hijau", (x + w + 10, y + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 127), 2, cv2.LINE_AA)
+            cv2.putText(img, "Hijau", (x + 10 , y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 127), 2, cv2.LINE_AA)
         
+            # kirim data ke arduino
+            ser.write('g'.encode())
+        
+    # Menampilkan data kedalaman dan jarak dari Arduino di frame
+    if ser.in_waiting > 0:
+        data = ser.readline().decode().rstrip()
+        print("Data dari Arduino:", data)  # Tambahkan ini
+        if data.startswith("D:"):
+            depth = data.split(":")[1]  # Ambil nilai kedalaman air dari data
+        elif data.startswith("K:"):
+            distance = data.split(":")[1]  # Ambil nilai jarak dari data
+
+    # Tampilkan kedalaman air dan jarak di frame
+    cv2.putText(img, f"Kedalaman Air: {depth} cm | Jarak: {distance} cm", (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+
     # Increment frame counter untuk menghitung FPS
     fps_frame_counter += 1
             
@@ -146,10 +175,11 @@ while True:
         fps = fps_frame_counter
         fps_frame_counter = 0
         fps_start_time = time.time()
+    
             
     # Menampilkan FPS di layar
     cv2.putText(img, f"FPS: {fps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        
+    
     # menampilkan gambar atau video
     # cv2.imshow("window", imgResult)
     
