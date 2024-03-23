@@ -8,7 +8,7 @@ import serial
 #time.sleep(2)  # Tunggu sebentar agar koneksi serial stabil
 
 # baca gambar
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 # mengubah spesifik ukuran
 # lebar
@@ -27,20 +27,27 @@ fps = 0
 # deklarasi variabel untuk data dari sensor yang terhubung dengan arduino
 depth = "100"
 distance = "100"
+
+# deklarasi variabel arah gerak
+arah = ""
     
 # video adalah sekumpulan gambar, sehingga dibutuhkan perulangan
 while True:    
     # mengcapture image
     success, img = cap.read()
     
+    # titik tengah x dan y
+    image_center_x = int(img.shape[1] / 2)
+    image_center_y = int(img.shape[0] / 2)
+    
     # menentukan hsv minimum
     r_lower = np.array([163, 201, 136]) # lower red
-    o_lower = np.array([1,177,125]) # lower orange
+    o_lower = np.array([2,132,164]) # lower orange
     g_lower = np.array([45, 80, 25]) # lower green
 
     # menentukan hsv maksimum
     r_upper = np.array([179, 255, 255]) # higher red
-    o_upper = np.array([63,255,255]) # higher orange
+    o_upper = np.array([14,210,255]) # higher orange
     g_upper = np.array([90,255,255]) # higher green
     
     # ubah bgr menjadi hsv
@@ -119,9 +126,39 @@ while True:
             
             # Gambar titik centroid pada gambar hasil
             cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1) 
+             # print cx,cy
+            # print("titik tengah objek ", cx,cy)
+            
+            if (cx > image_center_x+30 and image_center_y-30 > cy):
+                print("kanan atas")
+                arah = 'kanan_atas'
+            elif (cx < image_center_x-30 and image_center_y-30 > cy):
+                print("kiri atas")
+                arah = 'kiri_atas'
+            elif (cx > image_center_x+30 and image_center_y+30 < cy):
+                print("kanan bawah")
+                arah = 'kanan_bawah'
+            elif (cx < image_center_x-30 and image_center_y+30 < cy):
+                print("kiri bawah")
+                arah = 'kiri_bawah' 
+            elif (image_center_y-30 > cy):
+                print("atas")
+                arah = 'atas' 
+            elif (image_center_y+30 < cy):
+                print("bawah")
+                arah = 'bawah'
+            elif (cx > image_center_x+30):
+                print("kanan")
+                arah = 'kanan'  
+            elif (cx < image_center_x-30):
+                print("kiri")
+                arah = 'kiri'                    
+            else:
+                print("maju")
+                arah ='maju'
 
             # tulisan merah pada persegi panjang
-            cv2.putText(img, "Orange", (x + 10 , y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 69, 255), 2, cv2.LINE_AA)        
+            cv2.putText(img, "orange", (x + 10 , y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 69, 255), 2, cv2.LINE_AA)        
     
             # kirim data ke arduino
             #ser.write('o'.encode())
@@ -165,7 +202,15 @@ while True:
             #distance = data.split(":")[1]  # Ambil nilai jarak dari data
 
     # Tampilkan kedalaman air dan jarak di frame
-    cv2.putText(img, f"Kedalaman Air: {depth} cm | Jarak: {distance} cm", (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    cv2.putText(img, f"Kedalaman Air: {depth} cm | Jarak: {distance} cm", (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+
+    # tampilkan crosshair
+    cv2.line(img, (image_center_x - 30, image_center_y), (image_center_x + 30, image_center_y), (0,255,127), 2)
+    cv2.line(img, (image_center_x, image_center_y - 30), (image_center_x, image_center_y + 30), (0,255,127), 2)
+    # print("titik tengah x,y ", image_center_x, image_center_y)
+    
+    # text arah gerak
+    cv2.putText(img, f"Arah Gerak: {arah}", (400, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
     # Increment frame counter untuk menghitung FPS
     fps_frame_counter += 1
@@ -176,9 +221,8 @@ while True:
         fps_frame_counter = 0
         fps_start_time = time.time()
     
-            
-    # Menampilkan FPS di laya
-    cv2.putText(img, f"FPS: {fps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    # Menampilkan FPS di layar
+    cv2.putText(img, f"FPS: {fps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
     
     # menampilkan gambar atau video
     # cv2.imshow("window", imgResult)
